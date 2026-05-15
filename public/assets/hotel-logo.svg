@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!-- Optimized Porto Seguro Praia Resort Ship Logo -->
+  <g transform="translate(200, 180) scale(1.2)">
+    <!-- Ship Body (Hull) -->
+    <path fill="#f37021" d="M-80,60 C-60,110 60,110 80,60 C40,75 -40,75 -80,60 Z" />
+    <path fill="#f37021" d="M0,70 L10,-50 L-10,-50 L0,70 Z" /> <!-- Mast -->
+    
+    <!-- Sails -->
+    <path fill="#f37021" d="M-90,45 C-70,35 -30,30 0,30 C30,30 70,35 90,45 C75,85 30,110 0,110 C-30,110 -75,85 -90,45 Z" transform="translate(0,-60)" /> <!-- Bottom Sail -->
+    <path fill="#f37021" d="M-70,35 C-50,25 -20,22 0,22 C20,22 50,25 70,35 C60,65 25,85 0,85 C-25,85 -60,65 -70,35 Z" transform="translate(0,-135)" /> <!-- Middle Sail -->
+    <path fill="#f37021" d="M-45,25 C-30,20 -10,18 0,18 C10,18 30,20 45,25 C40,45 15,60 0,60 C-15,60 -40,45 -45,25 Z" transform="translate(0,-190)" /> <!-- Top Sail -->
+    
+    <!-- Cross on Middle Sail (White) -->
+    <g transform="translate(0,-105) scale(0.6)" fill="white">
+      <path d="M-15,-15 L15,-15 L15,15 L-15,15 Z" transform="rotate(45)" /> <!-- Placeholder for stylized cross -->
+      <circle r="4" fill="white" />
+    </g>
+    
+    <!-- Waves below -->
+    <path fill="#f37021" d="M-70,115 C-40,105 -10,125 20,115 C50,105 80,125 100,115 L100,125 C80,135 50,115 20,125 C-10,135 -40,115 -70,125 Z" />
+    <path fill="#f37021" d="M-50,135 C-30,125 -10,145 10,135 C30,125 50,145 70,135 L70,145 C50,155 30,135 10,145 C-10,155 -30,135 -50,145 Z" />
+  </g>
+  
+  <!-- Text Styling based on branding -->
+  <text x="200" y="325" text-anchor="middle" font-family="Verdana, sans-serif" font-weight="bold" font-size="22" fill="#f37021">PORTO SEGURO</text>
+  <text x="200" y="365" text-anchor="middle" font-family="Verdana, sans-serif" font-weight="900" font-size="32" fill="#f37021">PRAIA RESORT</text>
+  <text x="200" y="390" text-anchor="middle" font-family="Verdana, sans-serif" font-weight="bold" font-size="12" fill="#f37021" letter-spacing="4">ALL INCLUSIVE</text>
+</svg>
