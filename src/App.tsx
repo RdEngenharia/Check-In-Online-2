@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -90,6 +90,42 @@ const formatPhoneNumber = (value: string) => {
   if (phoneNumberLength <= 6) return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2)}`;
   if (phoneNumberLength <= 10) return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 6)}-${phoneNumber.slice(6)}`;
   return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 7)}-${phoneNumber.slice(7, 11)}`;
+};
+
+const formatCPF = (value: string) => {
+  const cpf = value.replace(/\D/g, '');
+  if (cpf.length <= 3) return cpf;
+  if (cpf.length <= 6) return `${cpf.slice(0, 3)}.${cpf.slice(3)}`;
+  if (cpf.length <= 9) return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6)}`;
+  return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9, 11)}`;
+};
+
+const formatCEP = (value: string) => {
+  const cep = value.replace(/\D/g, '');
+  if (cep.length <= 5) return cep;
+  return `${cep.slice(0, 5)}-${cep.slice(5, 8)}`;
+};
+
+const validateCPF = (cpf: string): boolean => {
+  const cleanCPF = cpf.replace(/\D/g, '');
+  if (cleanCPF.length !== 11) return false;
+  if (/^(\d)\1+$/.test(cleanCPF)) return false;
+
+  let sum = 0;
+  let remainder;
+
+  for (let i = 1; i <= 9; i++) sum = sum + parseInt(cleanCPF.substring(i - 1, i)) * (11 - i);
+  remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(cleanCPF.substring(9, 10))) return false;
+
+  sum = 0;
+  for (let i = 1; i <= 10; i++) sum = sum + parseInt(cleanCPF.substring(i - 1, i)) * (12 - i);
+  remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(cleanCPF.substring(10, 11))) return false;
+
+  return true;
 };
 
 export default function App() {
@@ -102,6 +138,8 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<{ name: string, url: string }[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [loginPassword, setLoginPassword] = useState('');
+  const [cepError, setCepError] = useState<string | null>(null);
+  const [isLoadingCEP, setIsLoadingCEP] = useState(false);
 
   // CONFIGURAÇÃO DE SEGURANÇA
   const TOKEN_RECEPCAO = import.meta.env.VITE_GAS_TOKEN || "PortoSeguro2026#";
@@ -164,9 +202,9 @@ export default function App() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     let { name, value } = e.target;
     
-    // Auto-uppercase para campos de texto (exceto e-mail para evitar problemas de digitação, mas seguindo a regra geral se preferir)
+    // Auto-uppercase para campos de texto (exceto e-mail)
     const isTextInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
-    const isSpecialType = isTextInput && (e.target as HTMLInputElement).type === 'date' || (e.target as HTMLInputElement).type === 'time';
+    const isSpecialType = isTextInput && ((e.target as HTMLInputElement).type === 'date' || (e.target as HTMLInputElement).type === 'time');
     
     if (isTextInput && !isSpecialType && name !== 'email') {
       value = value.toUpperCase();
@@ -177,7 +215,47 @@ export default function App() {
       value = formatPhoneNumber(value);
     }
 
+    // Formatação de CPF
+    if (name === 'cpf') {
+      value = formatCPF(value);
+    }
+
+    // Formatação de CEP e busca ViaCEP
+    if (name === 'cep') {
+      value = formatCEP(value);
+      const cleanCEP = value.replace(/\D/g, '');
+      if (cleanCEP.length === 8) {
+        handleCEPLookup(cleanCEP);
+      } else {
+        setCepError(null);
+      }
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCEPLookup = async (cep: string) => {
+    setIsLoadingCEP(true);
+    setCepError(null);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      
+      if (data.erro) {
+        setCepError('CEP não encontrado');
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          residenciaPermanente: `${data.logradouro}${data.bairro ? ', ' + data.bairro : ''}`.toUpperCase(),
+          cidadeEstado: `${data.localidade} - ${data.uf}`.toUpperCase(),
+          cep: formatCEP(cep)
+        }));
+      }
+    } catch (err) {
+      setCepError('Erro ao buscar CEP');
+    } finally {
+      setIsLoadingCEP(false);
+    }
   };
 
   const isFormValid = 
@@ -187,10 +265,10 @@ export default function App() {
     formData.sexo.trim().length > 0 &&
     formData.documentoNumero.trim().length > 0 &&
     formData.documentoTipo.trim().length > 0 &&
-    formData.cpf.trim().length > 0 &&
+    validateCPF(formData.cpf) &&
     formData.residenciaPermanente.trim().length > 0 &&
     formData.cidadeEstado.trim().length > 0 &&
-    formData.cep.trim().length > 0 &&
+    formData.cep.trim().length >= 8 &&
     formData.email.trim().length > 0 &&
     (formData.telefoneResidencial.trim().length > 0 || formData.telefoneComercial.trim().length > 0);
 
@@ -392,7 +470,7 @@ export default function App() {
                 )}
               </div>
               <div className="flex-1">
-                <h1 className="text-3xl font-black uppercase text-neutral-900 font-display tracking-tight leading-none">Ficha de Registro de Hóspedes</h1>
+                <h1 className="text-2xl font-black uppercase text-neutral-900 font-display tracking-tight leading-none">Ficha de Registro de Hóspedes</h1>
               </div>
             </div>
             
@@ -493,7 +571,21 @@ export default function App() {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700">CPF <span className="text-red-500">*</span></label>
-              <input type="text" name="cpf" value={formData.cpf} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
+              <input 
+                type="text" 
+                name="cpf" 
+                value={formData.cpf} 
+                onChange={handleInputChange} 
+                className={`w-full px-4 py-2 bg-neutral-50 border rounded-lg text-sm transition-colors ${
+                  formData.cpf.length > 0 && !validateCPF(formData.cpf) 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : 'border-neutral-200 focus:ring-black'
+                }`}
+                placeholder="000.000.000-00"
+              />
+              {formData.cpf.length > 0 && !validateCPF(formData.cpf) && (
+                <p className="text-[10px] text-red-500 font-medium">CPF inválido / Invalid CPF</p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
@@ -509,9 +601,28 @@ export default function App() {
               </label>
               <input type="text" name="residenciaPermanente" value={formData.residenciaPermanente} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
               <label className="text-xs font-semibold text-neutral-700">CEP / Zip Code <span className="text-red-500">*</span></label>
-              <input type="text" name="cep" value={formData.cep} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
+              <div className="relative">
+                <input 
+                  type="text" 
+                  name="cep" 
+                  value={formData.cep} 
+                  onChange={handleInputChange} 
+                  className={`w-full px-4 py-2 bg-neutral-50 border rounded-lg text-sm transition-colors ${
+                    cepError ? 'border-red-500' : 'border-neutral-200'
+                  }`} 
+                  placeholder="00000-000"
+                />
+                {isLoadingCEP && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="animate-spin h-4 w-4 border-2 border-neutral-300 border-t-neutral-900 rounded-full" />
+                  </div>
+                )}
+              </div>
+              {cepError && (
+                <p className="text-[10px] text-red-500 font-medium">{cepError}</p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700">Cidade, Estado / City, State <span className="text-red-500">*</span></label>
@@ -759,7 +870,7 @@ export default function App() {
               )}
             </div>
             <div className="w-2/3 flex items-center justify-center px-4">
-              <h1 className="text-3xl font-black uppercase text-center tracking-tight leading-none" style={{ fontFamily: 'sans-serif' }}>Ficha de Registro de Hóspedes</h1>
+              <h1 className="text-2xl font-black uppercase text-center tracking-tight leading-none" style={{ fontFamily: 'sans-serif' }}>Ficha de Registro de Hóspedes</h1>
             </div>
           </div>
 
