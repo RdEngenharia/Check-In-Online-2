@@ -80,7 +80,17 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/hotel-logo.svg';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
+
+const formatPhoneNumber = (value: string) => {
+  if (!value) return value;
+  const phoneNumber = value.replace(/\D/g, '');
+  const phoneNumberLength = phoneNumber.length;
+  if (phoneNumberLength <= 2) return `(${phoneNumber}`;
+  if (phoneNumberLength <= 6) return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2)}`;
+  if (phoneNumberLength <= 10) return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 6)}-${phoneNumber.slice(6)}`;
+  return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 7)}-${phoneNumber.slice(7, 11)}`;
+};
 
 export default function App() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -152,9 +162,37 @@ export default function App() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+    
+    // Auto-uppercase para campos de texto (exceto e-mail para evitar problemas de digitação, mas seguindo a regra geral se preferir)
+    const isTextInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+    const isSpecialType = isTextInput && (e.target as HTMLInputElement).type === 'date' || (e.target as HTMLInputElement).type === 'time';
+    
+    if (isTextInput && !isSpecialType && name !== 'email') {
+      value = value.toUpperCase();
+    }
+
+    // Formatação de Telefone
+    if (name === 'telefoneResidencial' || name === 'telefoneComercial') {
+      value = formatPhoneNumber(value);
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  const isFormValid = 
+    formData.nomeCompleto.trim().length > 0 &&
+    formData.dataNascimento.trim().length > 0 &&
+    formData.idade.trim().length > 0 &&
+    formData.sexo.trim().length > 0 &&
+    formData.documentoNumero.trim().length > 0 &&
+    formData.documentoTipo.trim().length > 0 &&
+    formData.cpf.trim().length > 0 &&
+    formData.residenciaPermanente.trim().length > 0 &&
+    formData.cidadeEstado.trim().length > 0 &&
+    formData.cep.trim().length > 0 &&
+    formData.email.trim().length > 0 &&
+    (formData.telefoneResidencial.trim().length > 0 || formData.telefoneComercial.trim().length > 0);
 
   const generatePDF = async () => {
     if (!pdfRef.current) return null;
@@ -353,9 +391,8 @@ export default function App() {
                   <Ship className="text-[#f37021] w-14 h-14" />
                 )}
               </div>
-              <div>
-                <h1 className="text-3xl font-bold text-neutral-900 font-display leading-tight">Porto Seguro Praia Resort</h1>
-                <p className="text-neutral-600 text-base italic font-serif">Gerenciamento de Check-in Online</p>
+              <div className="flex-1">
+                <h1 className="text-3xl font-black uppercase text-neutral-900 font-display tracking-tight leading-none">Ficha de Registro de Hóspedes</h1>
               </div>
             </div>
             
@@ -406,13 +443,13 @@ export default function App() {
             {/* Row 1 */}
             <div className="md:col-span-3 space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <User size={14} /> Nome Completo / Full Name
+                <User size={14} /> Nome Completo / Full Name <span className="text-red-500">*</span>
               </label>
               <input type="text" name="nomeCompleto" value={formData.nomeCompleto} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <Calendar size={14} /> Data de Nasc. / Date Born
+                <Calendar size={14} /> Data de Nasc. / Date Born <span className="text-red-500">*</span>
               </label>
               <input type="date" name="dataNascimento" value={formData.dataNascimento} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
@@ -432,12 +469,12 @@ export default function App() {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <Hash size={14} /> Idade / Age
+                <Hash size={14} /> Idade / Age <span className="text-red-500">*</span>
               </label>
               <input type="number" name="idade" value={formData.idade} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">Sexo / Sex</label>
+              <label className="text-xs font-semibold text-neutral-700">Sexo / Sex <span className="text-red-500">*</span></label>
               <select name="sexo" value={formData.sexo} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm">
                 <option value="">Selecione / Select</option>
                 <option value="Masculino">Masculino / Male</option>
@@ -447,15 +484,15 @@ export default function App() {
 
             {/* Row 3 */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">Doc. Identidade / Travel Doc</label>
+              <label className="text-xs font-semibold text-neutral-700">Doc. Identidade / Travel Doc <span className="text-red-500">*</span></label>
               <input type="text" name="documentoNumero" value={formData.documentoNumero} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder="Número / Number" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">Tipo / Type</label>
+              <label className="text-xs font-semibold text-neutral-700">Tipo / Type <span className="text-red-500">*</span></label>
               <input type="text" name="documentoTipo" value={formData.documentoTipo} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder="RG, Passaporte..." />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">CPF</label>
+              <label className="text-xs font-semibold text-neutral-700">CPF <span className="text-red-500">*</span></label>
               <input type="text" name="cpf" value={formData.cpf} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1">
@@ -468,25 +505,25 @@ export default function App() {
             {/* Row 4 */}
             <div className="md:col-span-2 space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <MapPin size={14} /> Residência Permanente / Permanent Address
+                <MapPin size={14} /> Residência / Residence <span className="text-red-500">*</span>
               </label>
               <input type="text" name="residenciaPermanente" value={formData.residenciaPermanente} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">CEP / Zip Code</label>
+              <label className="text-xs font-semibold text-neutral-700">CEP / Zip Code <span className="text-red-500">*</span></label>
               <input type="text" name="cep" value={formData.cep} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">Cidade, Estado / City, State</label>
+              <label className="text-xs font-semibold text-neutral-700">Cidade, Estado / City, State <span className="text-red-500">*</span></label>
               <input type="text" name="cidadeEstado" value={formData.cidadeEstado} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
 
             {/* Row 5 */}
             <div className="md:col-span-2 space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <Mail size={14} /> E-mail
+                <Mail size={14} /> E-mail <span className="text-red-500">*</span>
               </label>
-              <input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
+              <input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder="seu@email.com" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700">Última Procedência / Arriving from</label>
@@ -520,15 +557,15 @@ export default function App() {
             {/* Row 7 - Telefones */}
             <div className="md:col-span-2 space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <Phone size={14} /> Telefone Residencial / Home Telephone
+                <Phone size={14} /> Telefone Residencial / Home <span className="text-neutral-400 text-[10px]">(Ao menos um telefone)</span>
               </label>
-              <input type="text" name="telefoneResidencial" value={formData.telefoneResidencial} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
+              <input type="text" name="telefoneResidencial" value={formData.telefoneResidencial} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder="(00) 00000-0000" />
             </div>
             <div className="md:col-span-2 space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <Phone size={14} /> Telefone Comercial / Business Telephone
+                <Phone size={14} /> Telefone Comercial / Business
               </label>
-              <input type="text" name="telefoneComercial" value={formData.telefoneComercial} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
+              <input type="text" name="telefoneComercial" value={formData.telefoneComercial} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder="(00) 00000-0000" />
             </div>
 
             {/* Row 8 - Entrada/Saída */}
@@ -568,8 +605,12 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleSubmitAndFinish}
-                disabled={isGenerating}
-                className="w-full bg-neutral-900 text-white font-bold py-4 rounded-xl hover:bg-neutral-800 transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50"
+                disabled={isGenerating || !isFormValid}
+                className={`w-full font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg ${
+                  !isFormValid 
+                    ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed shadow-none' 
+                    : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                }`}
               >
                 <CheckCircle size={20} /> Finalizar Check-in e Baixar PDF / Finish Check-in and Download PDF
               </button>
@@ -703,7 +744,7 @@ export default function App() {
         <div id="pdf-template" ref={pdfRef} className="w-[210mm] min-h-[297mm] bg-white p-[10mm] text-black font-serif border-[1px] border-neutral-300" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
           {/* Header Box */}
           <div className="border-[2px] border-black rounded-3xl p-8 mb-6 flex items-center" style={{ borderColor: '#000000', minHeight: '45mm' }}>
-            <div className="w-1/3 flex items-center justify-start border-r-2 border-black pr-6" style={{ borderRightColor: '#000000', height: '35mm' }}>
+            <div className="w-1/3 flex items-center justify-start" style={{ height: '35mm' }}>
               {logo ? (
                 <img 
                   src={logo} 
@@ -858,15 +899,17 @@ export default function App() {
             <div className="flex border-b border-black" style={{ borderBottomColor: '#000000' }}>
               <div className="flex-1 p-1 border-r border-black" style={{ borderRightColor: '#000000' }}>
                 <p className="italic text-gray-500" style={{ color: '#737373' }}>Assinatura do Hóspede / Guest's Signature</p>
-                <p className="text-xl font-bold mt-2">X</p>
+                <div className="h-10 flex items-end pb-1">
+                   <p className="text-xl font-bold ml-2">X _______________________</p>
+                </div>
               </div>
-              <div className="w-64 p-1 border-r border-black" style={{ borderRightColor: '#000000' }}>
+              <div className="w-44 p-1 border-r border-black" style={{ borderRightColor: '#000000' }}>
                 <p className="italic text-gray-500" style={{ color: '#737373' }}>Telefone Residencial / Home Telephone</p>
-                <p className="font-bold text-sm h-8 mt-2">{formData.telefoneResidencial}</p>
+                <p className="font-bold text-sm h-8 mt-1 leading-tight">{formData.telefoneResidencial}</p>
               </div>
-              <div className="w-64 p-1">
+              <div className="w-44 p-1">
                 <p className="italic text-gray-500" style={{ color: '#737373' }}>Telefone Comercial / Business Telephone</p>
-                <p className="font-bold text-sm h-8 mt-2">{formData.telefoneComercial}</p>
+                <p className="font-bold text-sm h-8 mt-1 leading-tight">{formData.telefoneComercial}</p>
               </div>
             </div>
 
