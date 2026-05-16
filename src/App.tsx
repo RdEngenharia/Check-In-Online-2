@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Hotel, Upload, Download, User, Calendar, Briefcase, Globe, Hash, CreditCard, Car, MapPin, Mail, Phone, Clock, Users, MessageCircle, CheckCircle, ShieldCheck, Ship, Printer, Search, FileText, ExternalLink, Shield, ArrowLeft } from 'lucide-react';
+import { Hotel, Upload, Download, User, Calendar, Briefcase, Globe, Hash, CreditCard, Car, MapPin, Mail, Phone, Clock, Users, CheckCircle, ShieldCheck, Ship, Printer, Search, FileText, ExternalLink, Shield, ArrowLeft, PenLine } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 interface FormData {
@@ -44,17 +44,17 @@ const initialFormData: FormData = {
   nomeCompleto: '',
   dataNascimento: '',
   profissao: '',
-  nacionalidade: '',
+  nacionalidade: 'BRASILEIRA',
   idade: '',
   sexo: '',
   documentoNumero: '',
-  documentoTipo: '',
+  documentoTipo: 'RG',
   cpf: '',
   placaVeiculo: '',
   residenciaPermanente: '',
   cep: '',
   cidadeEstado: '',
-  pais: '',
+  pais: 'BRASIL',
   email: '',
   ultimaProcedencia: '',
   proximoDestino: '',
@@ -62,10 +62,10 @@ const initialFormData: FormData = {
   meioTransporte: 'Automóvel',
   telefoneResidencial: '',
   telefoneComercial: '',
-  dataEntrada: '',
-  horaEntrada: '',
+  dataEntrada: new Date().toISOString().split('T')[0],
+  horaEntrada: new Date().toTimeString().split(' ')[0].substring(0, 5),
   dataSaida: '',
-  horaSaida: '',
+  horaSaida: '12:00',
   acompanhantes: '',
   fnrh: '',
   registro: '',
@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -215,13 +215,13 @@ export default function App() {
       value = formatPhoneNumber(value);
     }
 
-    // Formatação de CPF
-    if (name === 'cpf') {
+    // Formatação de CPF (Apenas para Brasil)
+    if (name === 'cpf' && formData.pais === 'BRASIL') {
       value = formatCPF(value);
     }
 
-    // Formatação de CEP e busca ViaCEP
-    if (name === 'cep') {
+    // Formatação de CEP e busca ViaCEP (Apenas para Brasil)
+    if (name === 'cep' && formData.pais === 'BRASIL') {
       value = formatCEP(value);
       const cleanCEP = value.replace(/\D/g, '');
       if (cleanCEP.length === 8) {
@@ -265,10 +265,10 @@ export default function App() {
     formData.sexo.trim().length > 0 &&
     formData.documentoNumero.trim().length > 0 &&
     formData.documentoTipo.trim().length > 0 &&
-    validateCPF(formData.cpf) &&
+    (formData.pais === 'BRASIL' ? validateCPF(formData.cpf) : formData.cpf.trim().length > 0) &&
     formData.residenciaPermanente.trim().length > 0 &&
     formData.cidadeEstado.trim().length > 0 &&
-    formData.cep.trim().length >= 8 &&
+    (formData.pais === 'BRASIL' ? formData.cep.trim().length >= 8 : formData.cep.trim().length > 0) &&
     formData.email.trim().length > 0 &&
     (formData.telefoneResidencial.trim().length > 0 || formData.telefoneComercial.trim().length > 0);
 
@@ -535,15 +535,45 @@ export default function App() {
             {/* Row 2 */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <Briefcase size={14} /> Profissão / Occupation
+                <Globe size={14} /> País / Country <span className="text-red-500">*</span>
               </label>
-              <input type="text" name="profissao" value={formData.profissao} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
+              <select 
+                name="pais" 
+                value={formData.pais} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    pais: val,
+                    nacionalidade: val === 'BRASIL' ? 'BRASILEIRA' : prev.nacionalidade,
+                    cep: '',
+                    cpf: ''
+                  }));
+                  setCepError(null);
+                }} 
+                className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm"
+              >
+                <option value="BRASIL">BRASIL</option>
+                <option value="ARGENTINA">ARGENTINA</option>
+                <option value="PARAGUAI">PARAGUAI</option>
+                <option value="URUGUAI">URUGUAI</option>
+                <option value="CHILE">CHILE</option>
+                <option value="ESTADOS UNIDOS">ESTADOS UNIDOS</option>
+                <option value="COLÔMBIA">COLÔMBIA</option>
+                <option value="OUTRO">OUTRO / OTHER</option>
+              </select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
                 <Globe size={14} /> Nacionalidade / Nationality
               </label>
               <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
+                <Briefcase size={14} /> Profissão / Occupation
+              </label>
+              <input type="text" name="profissao" value={formData.profissao} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
@@ -567,23 +597,23 @@ export default function App() {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700">Tipo / Type <span className="text-red-500">*</span></label>
-              <input type="text" name="documentoTipo" value={formData.documentoTipo} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder="RG, Passaporte..." />
+              <input type="text" name="documentoTipo" value={formData.documentoTipo} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder={formData.pais === 'BRASIL' ? "RG, CNH..." : "Passaporte, DNI..."} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">CPF <span className="text-red-500">*</span></label>
+              <label className="text-xs font-semibold text-neutral-700">{formData.pais === 'BRASIL' ? 'CPF' : 'ID Fiscal / Local ID'} <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
                 name="cpf" 
                 value={formData.cpf} 
                 onChange={handleInputChange} 
                 className={`w-full px-4 py-2 bg-neutral-50 border rounded-lg text-sm transition-colors ${
-                  formData.cpf.length > 0 && !validateCPF(formData.cpf) 
+                  formData.pais === 'BRASIL' && formData.cpf.length > 0 && !validateCPF(formData.cpf) 
                     ? 'border-red-500 focus:ring-red-500' 
                     : 'border-neutral-200 focus:ring-black'
                 }`}
-                placeholder="000.000.000-00"
+                placeholder={formData.pais === 'BRASIL' ? "000.000.000-00" : "ID Number"}
               />
-              {formData.cpf.length > 0 && !validateCPF(formData.cpf) && (
+              {formData.pais === 'BRASIL' && formData.cpf.length > 0 && !validateCPF(formData.cpf) && (
                 <p className="text-[10px] text-red-500 font-medium">CPF inválido / Invalid CPF</p>
               )}
             </div>
@@ -602,7 +632,7 @@ export default function App() {
               <input type="text" name="residenciaPermanente" value={formData.residenciaPermanente} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1 relative">
-              <label className="text-xs font-semibold text-neutral-700">CEP / Zip Code <span className="text-red-500">*</span></label>
+              <label className="text-xs font-semibold text-neutral-700">{formData.pais === 'BRASIL' ? 'CEP / Zip Code' : 'Código Postal'} <span className="text-red-500">*</span></label>
               <div className="relative">
                 <input 
                   type="text" 
@@ -612,7 +642,7 @@ export default function App() {
                   className={`w-full px-4 py-2 bg-neutral-50 border rounded-lg text-sm transition-colors ${
                     cepError ? 'border-red-500' : 'border-neutral-200'
                   }`} 
-                  placeholder="00000-000"
+                  placeholder={formData.pais === 'BRASIL' ? "00000-000" : "Zip Code"}
                 />
                 {isLoadingCEP && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -712,6 +742,14 @@ export default function App() {
               <textarea name="acompanhantes" value={formData.acompanhantes} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm h-20" placeholder="Nome dos acompanhantes / Names of companions..." />
             </div>
 
+            {/* Signature Area (Manual) */}
+            <div className="md:col-span-4 flex flex-col items-center border-t border-neutral-100 pt-6 mt-2">
+              <div className="w-full max-w-xs border-b-2 border-neutral-300 h-6 mb-1"></div>
+              <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest text-center">
+                Assinatura do Hóspede (Manual) / Guest's Signature
+              </p>
+            </div>
+
             <div className="md:col-span-4 pt-8 space-y-4">
               <button
                 type="button"
@@ -729,9 +767,9 @@ export default function App() {
               <div className="flex items-center justify-center gap-2 text-neutral-500 text-xs bg-neutral-50 p-3 rounded-lg border border-neutral-100">
                 <ShieldCheck size={16} className="text-green-600" />
                 <p className="text-center">
-                  <strong>Privacidade Garantida:</strong> Seus dados são processados localmente no seu navegador e não são salvos em nossos servidores. 
+                  <strong>Check-in Digital Seguro:</strong> Seus dados são transmitidos de forma criptografada para nossa recepção.
                   <br />
-                  <strong>Privacy Guaranteed:</strong> Your data is processed locally in your browser and is not saved on our servers.
+                  <strong>Secure Digital Check-in:</strong> Your data is transmitted encrypted to our reception.
                 </p>
               </div>
             </div>
@@ -935,7 +973,7 @@ export default function App() {
                 </div>
               </div>
               <div className="w-48 border-r border-black p-1" style={{ borderRightColor: '#000000' }}>
-                <p className="italic text-gray-500" style={{ color: '#737373' }}>CPF</p>
+                <p className="italic text-gray-500" style={{ color: '#737373' }}>{formData.pais === 'BRASIL' ? 'CPF' : 'ID Fiscal / Local ID'}</p>
                 <p className="font-bold h-12 flex items-center justify-center text-base">{formData.cpf}</p>
               </div>
               <div className="w-40 p-1">
@@ -951,7 +989,7 @@ export default function App() {
                 <p className="font-bold text-sm h-6">{formData.residenciaPermanente}</p>
               </div>
               <div className="flex-1 p-1 border-r border-black" style={{ borderRightColor: '#000000' }}>
-                <p className="italic text-gray-500" style={{ color: '#737373' }}>CEP / Zip Code</p>
+                <p className="italic text-gray-500" style={{ color: '#737373' }}>{formData.pais === 'BRASIL' ? 'CEP / Zip Code' : 'Código Postal'}</p>
                 <p className="font-bold text-sm h-6">{formData.cep}</p>
               </div>
               <div className="flex-1 p-1 border-r border-black" style={{ borderRightColor: '#000000' }}>
