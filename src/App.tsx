@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -342,11 +342,14 @@ export default function App() {
   const handleSubmitAndFinish = async () => {
     if (!formData.nomeCompleto || !formData.email) {
       setStatusMessage({ type: 'error', text: 'Por favor, preencha o nome e o e-mail.' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    setStatusMessage({ type: 'success', text: 'Gerando sua ficha e salvando no sistema... Por favor, não feche esta página.' });
+    // Rola para o topo para mostrar a mensagem de progresso na tela
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setIsGenerating(true);
+    setStatusMessage({ type: 'success', text: 'Iniciando processamento da ficha...' });
 
     try {
       // 1. Gerar o PDF
@@ -355,6 +358,8 @@ export default function App() {
       if (!pdfData) {
         throw new Error('Falha ao gerar o documento PDF.');
       }
+
+      setStatusMessage({ type: 'success', text: 'Enviando ficha ao sistema de segurança... Por favor, aguarde.' });
 
       // Usamos uma abordagem robusta para o Google Script
       // O 'no-cors' permite que a ficha seja enviada sem erros de navegador,
@@ -379,15 +384,23 @@ export default function App() {
         })
       }).catch(err => console.warn('Servidor local offline ou com erro, mas prosseguindo com Google Drive...'));
 
-      // Aguardamos ambas as tentativas
-      await Promise.allSettled([gasPromise, serverPromise]);
+      // Aguardamos ambas as tentativas + um tempo mínimo de 8 segundos (conforme solicitado para não ser tão rápido)
+      // Isso garante que o Google Script tenha tempo de processar e o usuário veja a tela de carregamento
+      await Promise.allSettled([
+        gasPromise, 
+        serverPromise,
+        new Promise(resolve => setTimeout(resolve, 8000))
+      ]);
 
       // 3. Limpar os campos do formulário e resetar estado
       setFormData(initialFormData);
 
+      // Antes de fechar o modal, garantimos que estamos no topo
+      window.scrollTo({ top: 0, behavior: 'auto' });
+
       setStatusMessage({ 
         type: 'success', 
-        text: 'Check-in finalizado com sucesso! Sua ficha foi salva no sistema e o formulário foi limpo.' 
+        text: 'PARABÉNS! Check-in realizado com sucesso. Sua ficha foi salva e o formulário foi limpo.' 
       });
 
       // 4. Por fim, dispara o download do PDF
@@ -476,6 +489,27 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-neutral-100 py-6 px-4 sm:px-6 lg:px-8 font-sans">
+      {/* Modal de Carregamento (Overlay) - Bloqueia a UI durante o salvamento */}
+      {isGenerating && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
+            <div className="relative mb-6">
+              <div className="w-16 h-16 border-4 border-neutral-100 border-t-neutral-900 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <ShieldCheck size={24} className="text-neutral-900 animate-pulse" />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-neutral-900 mb-2 font-display">Processando Check-in</h3>
+            <p className="text-neutral-500 text-sm leading-relaxed mb-4">
+              {statusMessage?.text || 'Estamos transmitindo seus dados com segurança para o Google Drive.'}
+            </p>
+            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-lg text-xs font-bold border border-green-100 animate-pulse">
+              Sistema de Segurança Ativo
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header - Identidade Visual */}
         <div className="bg-white rounded-2xl shadow-sm p-8 border border-neutral-200">
