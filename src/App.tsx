@@ -140,7 +140,6 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [cepError, setCepError] = useState<string | null>(null);
   const [isLoadingCEP, setIsLoadingCEP] = useState(false);
-  const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
   // CONFIGURAÇÃO DE SEGURANÇA
   const TOKEN_RECEPCAO = import.meta.env.VITE_GAS_TOKEN || "PortoSeguro2026#";
@@ -358,12 +357,12 @@ export default function App() {
         throw new Error('Falha ao gerar o documento PDF.');
       }
 
-      // 2. Enviar para o Google Drive e para o Servidor Local (Simultanemante)
-      // Usamos no-cors para evitar erros de pré-vôo com o Google Script
+      // Usamos uma abordagem robusta para o Google Script
+      // O 'no-cors' permite que a ficha seja enviada sem erros de navegador,
+      // mesmo que o Google Script não retorne uma resposta legível para o site.
       const gasPromise = fetch(gasUrl, {
         method: 'POST',
         mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nome: formData.nomeCompleto,
           cpf: formData.cpf,
@@ -455,111 +454,20 @@ export default function App() {
     }
   };
 
-  const handleViewFile = async (fileId?: string, fileUrl?: string) => {
+  const handleViewFile = (fileId?: string, fileUrl?: string) => {
     if (!fileId && !fileUrl) return;
     
-    if (!gasUrl) {
-      alert("Configuração ausente: A URL do Google Script não foi definida. Verifique os Segredos (Settings -> Secrets).");
-      window.open(fileUrl, "_blank");
-      return;
-    }
-
+    // Tenta extrair o ID do arquivo (ID comum entre /d/ e /view)
     const id = fileId || (fileUrl?.match(/[-\w]{25,}/)?.[0]);
     
-    if (!id) {
-      window.open(fileUrl, "_blank");
-      return;
-    }
-
-    // Abre a aba imediatamente para evitar bloqueio de popup
-    const newWindow = window.open('', '_blank');
-    if (newWindow) {
-      newWindow.document.write(`
-        <html>
-          <head>
-            <title>Carregando Ficha...</title>
-            <style>
-              body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; background: #f5f5f5; color: #333; }
-              .loader { border: 4px solid #f3f3f3; border-top: 4px solid #000; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-              .status { font-size: 14px; font-weight: 500; }
-            </style>
-          </head>
-          <body>
-            <div class="loader"></div>
-            <div class="status">Solicitando acesso seguro ao Google Drive...</div>
-          </body>
-        </html>
-      `);
-    }
-
-    setLoadingFileId(id);
-    try {
-      const url = new URL(gasUrl);
-      url.searchParams.append('action', 'getFile');
-      url.searchParams.append('fileId', id);
-      url.searchParams.append('token', TOKEN_RECEPCAO);
-
-      const response = await fetch(url.toString());
-      
-      if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
-      
-      const data = await response.json();
-
-      if (data.status === 'sucesso' && data.base64) {
-        // Sucesso total: Converte Base64 para Blob
-        const byteCharacters = atob(data.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(blob);
-        
-        if (newWindow) {
-          newWindow.location.href = fileURL;
-        } else {
-          window.open(fileURL, '_blank');
-        }
-      } else {
-        // O script respondeu, mas com erro de lógica (arquivo não encontrado, etc)
-        const errorMsg = data.mensagem || 'O Google Drive recusou o acesso ao arquivo.';
-        console.error('Erro retornado pelo GAS:', errorMsg);
-        
-        if (newWindow) {
-          newWindow.document.body.innerHTML = `
-            <div style="padding: 30px; text-align: center; max-width: 500px;">
-              <h2 style="color: #e11d48;">Erro ao Visualizar Ficha</h2>
-              <p style="color: #4b5563; font-size: 14px; margin-bottom: 20px;">
-                O servidor retornou: <strong>${errorMsg}</strong>
-              </p>
-              <div style="background: #fff3f3; padding: 15px; border-radius: 8px; font-size: 12px; text-align: left; margin-bottom: 20px; border: 1px solid #fda4af;">
-                <strong>Dica para o Administrador:</strong><br/>
-                Certifique-se de que a conta que publicou o Script tem acesso de leitura à pasta onde os PDFs são salvos.
-              </div>
-              <button onclick="window.location.href='${fileUrl}'" style="background: #000; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                Tentar Acesso Direto (Exige Login no Google)
-              </button>
-            </div>
-          `;
-        }
-      }
-    } catch (error) {
-      console.error('Erro de conexão com o Proxy:', error);
-      if (newWindow) {
-        newWindow.document.body.innerHTML = `
-          <div style="padding: 30px; text-align: center;">
-            <h2 style="color: #e11d48;">Erro de Conexão</h2>
-            <p style="color: #4b5563;">Não foi possível comunicar com o Google Script. Verifique se a URL está correta.</p>
-            <button onclick="window.location.href='${fileUrl}'" style="background: #000; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer;">
-              Acessar Via Google Drive
-            </button>
-          </div>
-        `;
-      }
-    } finally {
-      setLoadingFileId(null);
+    if (id) {
+      // Como a pasta é pública, usamos o link de PREVIEW oficial do Google Drive.
+      // Isso abre o PDF em um visualizador limpo e ignora conflitos de conta (login).
+      const previewUrl = `https://drive.google.com/file/d/${id}/preview`;
+      window.open(previewUrl, '_blank');
+    } else if (fileUrl) {
+      // Fallback para o link original se não detectarmos o ID
+      window.open(fileUrl, '_blank');
     }
   };
 
@@ -983,15 +891,9 @@ export default function App() {
                       </div>
                       <button 
                         onClick={() => handleViewFile(file.id, file.url)}
-                        disabled={loadingFileId === (file.id || file.url?.match(/[-\w]{25,}/)?.[0])}
-                        className="flex items-center gap-2 text-xs font-bold text-neutral-700 bg-white border border-neutral-200 px-4 py-2 rounded-lg hover:bg-neutral-50 transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 text-xs font-bold text-neutral-700 bg-white border border-neutral-200 px-4 py-2 rounded-lg hover:bg-neutral-50 transition-all"
                       >
-                        {loadingFileId === (file.id || file.url?.match(/[-\w]{25,}/)?.[0]) ? (
-                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-neutral-900 border-t-transparent" />
-                        ) : (
-                          <ExternalLink size={14} />
-                        )}
-                        Abrir Ficha
+                        <ExternalLink size={14} /> Abrir Ficha
                       </button>
                     </div>
                   ))
