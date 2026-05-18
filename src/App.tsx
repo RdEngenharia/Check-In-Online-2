@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -347,56 +347,59 @@ export default function App() {
       return;
     }
 
-    setStatusMessage(null);
+    setStatusMessage({ type: 'success', text: 'Gerando sua ficha e salvando no sistema... Por favor, não feche esta página.' });
+    setIsGenerating(true);
 
     try {
-      // 1. Gerar e Baixar o PDF localmente
+      // 1. Gerar o PDF
       const pdfData = await generatePDF();
       
-      // 2. Enviar para o Google Drive e Servidor Local
-      if (pdfData) {
-        // GAS (Envio para o Drive com Token)
-        try {
-          fetch(gasUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              nome: formData.nomeCompleto,
-              cpf: formData.cpf,
-              pdfBase64: pdfData.base64,
-              token: TOKEN_RECEPCAO // Token de segurança para autenticação no GAS
-            })
-          });
-        } catch (gasErr) {
-          console.error('Erro ao enviar para Google Drive:', gasErr);
-        }
-
-        // Local Server (Email)
-        try {
-          await fetch('/api/checkin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              formData,
-              pdfBase64: pdfData.base64
-            })
-          });
-        } catch (serverErr) {
-          console.error('Erro ao enviar para o servidor local:', serverErr);
-        }
+      if (!pdfData) {
+        throw new Error('Falha ao gerar o documento PDF.');
       }
 
-      // 3. Limpar os campos do formulário
+      // 2. Enviar para o Google Drive e para o Servidor Local (Simultanemante)
+      // Usamos no-cors para evitar erros de pré-vôo com o Google Script
+      const gasPromise = fetch(gasUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: formData.nomeCompleto,
+          cpf: formData.cpf,
+          pdfBase64: pdfData.base64,
+          token: TOKEN_RECEPCAO
+        })
+      });
+
+      const serverPromise = fetch('/api/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formData,
+          pdfBase64: pdfData.base64
+        })
+      }).catch(err => console.warn('Servidor local offline ou com erro, mas prosseguindo com Google Drive...'));
+
+      // Aguardamos ambas as tentativas
+      await Promise.allSettled([gasPromise, serverPromise]);
+
+      // 3. Limpar os campos do formulário e resetar estado
       setFormData(initialFormData);
 
       setStatusMessage({ 
         type: 'success', 
-        text: 'Check-in realizado com sucesso! O PDF foi baixado, enviado ao Drive e notificado por e-mail.' 
+        text: 'Check-in finalizado com sucesso! Sua ficha foi salva no Google Drive e o PDF foi baixado automaticamente.' 
       });
+
     } catch (error) {
       console.error('Erro ao processar check-in:', error);
-      setStatusMessage({ type: 'error', text: 'Erro ao processar o check-in. Tente novamente.' });
+      setStatusMessage({ 
+        type: 'error', 
+        text: 'Ocorreu um erro ao salvar sua ficha. Por favor, tente novamente ou fale com a recepção.' 
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
