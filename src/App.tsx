@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -300,10 +300,12 @@ export default function App() {
       const sanitizedName = formData.nomeCompleto.toUpperCase().replace(/\s+/g, '_');
       const fileName = `CHECKIN_${sanitizedCpf}_${sanitizedName}.pdf`;
       
-      pdf.save(fileName);
-      
-      // Return base64 for GAS
-      return { base64: pdf.output('datauristring').split(',')[1], fileName };
+      // Return pdf object and base64 for GAS
+      return { 
+        pdf,
+        base64: pdf.output('datauristring').split(',')[1], 
+        fileName 
+      };
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       return null;
@@ -385,8 +387,12 @@ export default function App() {
 
       setStatusMessage({ 
         type: 'success', 
-        text: 'Check-in finalizado com sucesso! Sua ficha foi salva no Google Drive e o PDF foi baixado automaticamente.' 
+        text: 'Check-in finalizado com sucesso! Sua ficha foi salva no sistema e o formulário foi limpo.' 
       });
+
+      // 4. Por fim, dispara o download do PDF
+      // Fazemos isso após limpar o formulário para garantir que a experiência do usuário seja fluida
+      pdfData.pdf.save(pdfData.fileName);
 
     } catch (error) {
       console.error('Erro ao processar check-in:', error);
