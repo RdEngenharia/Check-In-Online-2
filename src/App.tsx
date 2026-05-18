@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -456,7 +456,7 @@ export default function App() {
     if (!fileId && !fileUrl) return;
     
     if (!gasUrl) {
-      alert("Configuração ausente: VITE_GAS_URL não definida nos segredos.");
+      alert("Configuração ausente: A URL do Google Script não foi definida. Verifique os Segredos (Settings -> Secrets).");
       window.open(fileUrl, "_blank");
       return;
     }
@@ -464,14 +464,30 @@ export default function App() {
     const id = fileId || (fileUrl?.match(/[-\w]{25,}/)?.[0]);
     
     if (!id) {
-      window.open(fileUrl, '_blank');
+      window.open(fileUrl, "_blank");
       return;
     }
 
-    // Abre uma aba vazia IMEDIATAMENTE para evitar bloqueio de pop-up pelo navegador
+    // Abre a aba imediatamente para evitar bloqueio de popup
     const newWindow = window.open('', '_blank');
     if (newWindow) {
-      newWindow.document.write('<html><head><title>Carregando Ficha...</title><style>body{display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;color:#666;flex-direction:column;gap:20px;margin:0;background:#f5f5f5;}.spinner{width:40px;height:40px;border:4px solid #ddd;border-top:4px solid #000;border-radius:50%;animation:spin 1s linear infinite;}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style></head><body><div class="spinner"></div><p>Buscando ficha no Google Drive... Por favor, aguarde.</p></body></html>');
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>Carregando Ficha...</title>
+            <style>
+              body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; background: #f5f5f5; color: #333; }
+              .loader { border: 4px solid #f3f3f3; border-top: 4px solid #000; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+              .status { font-size: 14px; font-weight: 500; }
+            </style>
+          </head>
+          <body>
+            <div class="loader"></div>
+            <div class="status">Solicitando acesso seguro ao Google Drive...</div>
+          </body>
+        </html>
+      `);
     }
 
     setLoadingFileId(id);
@@ -482,9 +498,13 @@ export default function App() {
       url.searchParams.append('token', TOKEN_RECEPCAO);
 
       const response = await fetch(url.toString());
+      
+      if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
+      
       const data = await response.json();
 
       if (data.status === 'sucesso' && data.base64) {
+        // Sucesso total: Converte Base64 para Blob
         const byteCharacters = atob(data.base64);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -500,21 +520,40 @@ export default function App() {
           window.open(fileURL, '_blank');
         }
       } else {
-        const errorMsg = data.mensagem || 'Erro desconhecido no servidor';
-        console.error('Erro no GAS:', errorMsg);
+        // O script respondeu, mas com erro de lógica (arquivo não encontrado, etc)
+        const errorMsg = data.mensagem || 'O Google Drive recusou o acesso ao arquivo.';
+        console.error('Erro retornado pelo GAS:', errorMsg);
+        
         if (newWindow) {
-          newWindow.document.body.innerHTML = `<div style="padding:20px;text-align:center;color:red;height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;font-family:sans-serif;"><h3>Erro ao carregar arquivo</h3><p>${errorMsg}</p><button onclick="window.location.href='${fileUrl}'" style="padding:10px 20px;cursor:pointer;background:#000;color:#fff;border:none;border-radius:5px;">Tentar Acesso Direto (Google Drive)</button></div>`;
-        } else {
-          alert('Erro ao carregar via Proxy. Tentando acesso direto...');
-          window.open(fileUrl, '_blank');
+          newWindow.document.body.innerHTML = `
+            <div style="padding: 30px; text-align: center; max-width: 500px;">
+              <h2 style="color: #e11d48;">Erro ao Visualizar Ficha</h2>
+              <p style="color: #4b5563; font-size: 14px; margin-bottom: 20px;">
+                O servidor retornou: <strong>${errorMsg}</strong>
+              </p>
+              <div style="background: #fff3f3; padding: 15px; border-radius: 8px; font-size: 12px; text-align: left; margin-bottom: 20px; border: 1px solid #fda4af;">
+                <strong>Dica para o Administrador:</strong><br/>
+                Certifique-se de que a conta que publicou o Script tem acesso de leitura à pasta onde os PDFs são salvos.
+              </div>
+              <button onclick="window.location.href='${fileUrl}'" style="background: #000; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                Tentar Acesso Direto (Exige Login no Google)
+              </button>
+            </div>
+          `;
         }
       }
     } catch (error) {
-      console.error('Erro de conexão:', error);
+      console.error('Erro de conexão com o Proxy:', error);
       if (newWindow) {
-        newWindow.location.href = fileUrl || '#';
-      } else {
-        window.open(fileUrl, '_blank');
+        newWindow.document.body.innerHTML = `
+          <div style="padding: 30px; text-align: center;">
+            <h2 style="color: #e11d48;">Erro de Conexão</h2>
+            <p style="color: #4b5563;">Não foi possível comunicar com o Google Script. Verifique se a URL está correta.</p>
+            <button onclick="window.location.href='${fileUrl}'" style="background: #000; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer;">
+              Acessar Via Google Drive
+            </button>
+          </div>
+        `;
       }
     } finally {
       setLoadingFileId(null);
