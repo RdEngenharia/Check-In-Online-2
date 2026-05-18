@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Hotel, Upload, Download, User, Calendar, Briefcase, Globe, Hash, CreditCard, Car, MapPin, Mail, Phone, Clock, Users, CheckCircle, ShieldCheck, Ship, Printer, Search, FileText, ExternalLink, Shield, ArrowLeft, PenLine } from 'lucide-react';
+import { Hotel, Upload, Download, User, Calendar, Briefcase, Globe, Hash, CreditCard, Car, MapPin, Mail, Phone, Clock, Users, CheckCircle, ShieldCheck, Ship, Printer, Search, FileText, ExternalLink, Shield, ArrowLeft, PenLine, Check } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 interface FormData {
@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -140,6 +140,8 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [cepError, setCepError] = useState<string | null>(null);
   const [isLoadingCEP, setIsLoadingCEP] = useState(false);
+
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // CONFIGURAÇÃO DE SEGURANÇA
   const TOKEN_RECEPCAO = import.meta.env.VITE_GAS_TOKEN || "PortoSeguro2026#";
@@ -269,23 +271,14 @@ export default function App() {
     formData.email.trim().length > 0 &&
     (formData.telefoneResidencial.trim().length > 0 || formData.telefoneComercial.trim().length > 0);
 
-  const generatePDF = async () => {
+  const generatePDFData = async () => {
     if (!pdfRef.current) return null;
-    setIsGenerating(true);
-
     try {
       const canvas = await html2canvas(pdfRef.current, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        onclone: (clonedDoc) => {
-          const pdfElement = clonedDoc.getElementById('pdf-template');
-          if (pdfElement) {
-            pdfElement.style.color = '#000000';
-            pdfElement.style.backgroundColor = '#ffffff';
-          }
-        }
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -294,13 +287,10 @@ export default function App() {
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      
-      // Standardized Naming: CHECKIN_CPF_NOMEDOCLIENTE.pdf
       const sanitizedCpf = formData.cpf.replace(/\D/g, '') || '00000000000';
       const sanitizedName = formData.nomeCompleto.toUpperCase().replace(/\s+/g, '_');
       const fileName = `CHECKIN_${sanitizedCpf}_${sanitizedName}.pdf`;
       
-      // Return pdf object and base64 for GAS
       return { 
         pdf,
         base64: pdf.output('datauristring').split(',')[1], 
@@ -309,8 +299,6 @@ export default function App() {
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       return null;
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -346,75 +334,52 @@ export default function App() {
       return;
     }
 
-    // Rola para o topo para mostrar a mensagem de progresso na tela
+    // 1. ATIVA O ESTADO DE SUCESSO IMEDIATAMENTE (Sensação de Instantâneo)
+    setIsSuccess(true);
+    
+    // Captura os dados antes de limpar para envio em background
+    const dataToSend = { ...formData };
+    const currentGasUrl = gasUrl;
+    const currentToken = TOKEN_RECEPCAO;
+
+    // 2. LIMPA O FORMULÁRIO E ESTADOS IMEDIATAMENTE
+    setFormData(initialFormData);
+    setStatusMessage(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setIsGenerating(true);
-    setStatusMessage({ type: 'success', text: 'Iniciando processamento da ficha...' });
 
+    // 3. PROCESSAMENTO EM SEGUNDO PLANO
     try {
-      // 1. Gerar o PDF
-      const pdfData = await generatePDF();
-      
-      if (!pdfData) {
-        throw new Error('Falha ao gerar o documento PDF.');
-      }
-
-      setStatusMessage({ type: 'success', text: 'Enviando ficha ao sistema de segurança... Por favor, aguarde.' });
-
-      // Usamos uma abordagem robusta para o Google Script
-      // O 'no-cors' permite que a ficha seja enviada sem erros de navegador,
-      // mesmo que o Google Script não retorne uma resposta legível para o site.
-      const gasPromise = fetch(gasUrl, {
+      // Envio de TEXTO para o GAS (LIVRE E RÁPIDO)
+      fetch(currentGasUrl, {
         method: 'POST',
         mode: 'no-cors',
         body: JSON.stringify({
-          nome: formData.nomeCompleto,
-          cpf: formData.cpf,
-          pdfBase64: pdfData.base64,
-          token: TOKEN_RECEPCAO
+          ...dataToSend,
+          type: 'text_only',
+          token: currentToken
         })
       });
 
-      const serverPromise = fetch('/api/checkin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          formData,
-          pdfBase64: pdfData.base64
-        })
-      }).catch(err => console.warn('Servidor local offline ou com erro, mas prosseguindo com Google Drive...'));
-
-      // Aguardamos ambas as tentativas + um tempo mínimo de 8 segundos (conforme solicitado para não ser tão rápido)
-      // Isso garante que o Google Script tenha tempo de processar e o usuário veja a tela de carregamento
-      await Promise.allSettled([
-        gasPromise, 
-        serverPromise,
-        new Promise(resolve => setTimeout(resolve, 8000))
-      ]);
-
-      // 3. Limpar os campos do formulário e resetar estado
-      setFormData(initialFormData);
-
-      // Antes de fechar o modal, garantimos que estamos no topo
-      window.scrollTo({ top: 0, behavior: 'auto' });
-
-      setStatusMessage({ 
-        type: 'success', 
-        text: 'PARABÉNS! Check-in realizado com sucesso. Sua ficha foi salva e o formulário foi limpo.' 
-      });
-
-      // 4. Por fim, dispara o download do PDF
-      // Fazemos isso após limpar o formulário para garantir que a experiência do usuário seja fluida
-      pdfData.pdf.save(pdfData.fileName);
-
-    } catch (error) {
-      console.error('Erro ao processar check-in:', error);
-      setStatusMessage({ 
-        type: 'error', 
-        text: 'Ocorreu um erro ao salvar sua ficha. Por favor, tente novamente ou fale com a recepção.' 
-      });
-    } finally {
-      setIsGenerating(false);
+      // 4. GERA O PDF E SINCRONIZA DRIVE (Background)
+      const pdfData = await generatePDFData();
+      if (pdfData) {
+        // Dispara o download local
+        pdfData.pdf.save(pdfData.fileName);
+        
+        // Envia o PDF completo para o Drive em background
+        fetch(currentGasUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify({
+            nome: dataToSend.nomeCompleto,
+            cpf: dataToSend.cpf,
+            pdfBase64: pdfData.base64,
+            token: currentToken
+          })
+        });
+      }
+    } catch (e) {
+      console.error("Erro no processamento background:", e);
     }
   };
 
@@ -489,23 +454,28 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-neutral-100 py-6 px-4 sm:px-6 lg:px-8 font-sans">
-      {/* Modal de Carregamento (Overlay) - Bloqueia a UI durante o salvamento */}
-      {isGenerating && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
-            <div className="relative mb-6">
-              <div className="w-16 h-16 border-4 border-neutral-100 border-t-neutral-900 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <ShieldCheck size={24} className="text-neutral-900 animate-pulse" />
+      {/* Tela de Sucesso Visual */}
+      {isSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white p-4 animate-in fade-in duration-500">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center animate-bounce">
+                <Check size={48} strokeWidth={3} />
               </div>
             </div>
-            <h3 className="text-xl font-bold text-neutral-900 mb-2 font-display">Processando Check-in</h3>
-            <p className="text-neutral-500 text-sm leading-relaxed mb-4">
-              {statusMessage?.text || 'Estamos transmitindo seus dados com segurança para o Google Drive.'}
-            </p>
-            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-lg text-xs font-bold border border-green-100 animate-pulse">
-              Sistema de Segurança Ativo
+            <div className="space-y-2">
+              <h2 className="text-3xl font-extrabold text-neutral-900">Check-in Concluído!</h2>
+              <p className="text-neutral-500">Obrigado, <strong>{statusMessage?.text.includes('Erro') ? 'Hóspede' : 'sua ficha foi processada'}</strong>. <br/>Seja bem-vindo ao hotel!</p>
             </div>
+            <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 text-sm text-neutral-600">
+              <p>O PDF da sua ficha está sendo baixado automaticamente. Você já pode fechar esta aba ou iniciar um novo cadastro.</p>
+            </div>
+            <button 
+              onClick={() => setIsSuccess(false)}
+              className="w-full py-4 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition-all shadow-lg"
+            >
+              Novo Check-in
+            </button>
           </div>
         </div>
       )}
