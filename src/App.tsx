@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -135,11 +135,12 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [currentView, setCurrentView] = useState<'guest' | 'reception_login' | 'reception_panel'>('guest');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<{ name: string, url: string }[]>([]);
+  const [searchResults, setSearchResults] = useState<{ id?: string, name: string, url: string }[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [loginPassword, setLoginPassword] = useState('');
   const [cepError, setCepError] = useState<string | null>(null);
   const [isLoadingCEP, setIsLoadingCEP] = useState(false);
+  const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
   // CONFIGURAÇÃO DE SEGURANÇA
   const TOKEN_RECEPCAO = import.meta.env.VITE_GAS_TOKEN || "PortoSeguro2026#";
@@ -422,12 +423,14 @@ export default function App() {
       // Verifica se a resposta tem o status de sucesso e se contém dados
       if (data && data.status === 'sucesso' && Array.isArray(data.dados)) {
         formattedResults = data.dados.map((item: any) => ({
+          id: item.id || item.fileId,
           name: item.nome || item.name || item.fileName || 'Arquivo sem nome',
           url: item.url || item.viewUrl || item.link || '#'
         }));
       } else if (Array.isArray(data)) {
         // Fallback para caso o retorno seja apenas o array direto
         formattedResults = data.map((item: any) => ({
+          id: item.id || item.fileId,
           name: item.nome || item.name || item.fileName || 'Arquivo sem nome',
           url: item.url || item.viewUrl || item.link || '#'
         }));
@@ -446,6 +449,51 @@ export default function App() {
       setStatusMessage({ type: 'error', text: 'Erro ao conectar com o Google Drive.' });
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const handleViewFile = async (fileId?: string, fileUrl?: string) => {
+    if (!fileId && !fileUrl) return;
+    
+    // Tenta extrair ID da URL se não vier explicitamente
+    const id = fileId || (fileUrl?.match(/[-\w]{25,}/)?.[0]);
+    
+    if (!id) {
+      // Se não tem ID, abre o link original como fallback
+      window.open(fileUrl, '_blank');
+      return;
+    }
+
+    setLoadingFileId(id);
+    try {
+      const url = new URL(gasUrl);
+      url.searchParams.append('action', 'getFile');
+      url.searchParams.append('fileId', id);
+      url.searchParams.append('token', TOKEN_RECEPCAO);
+
+      const response = await fetch(url.toString());
+      const data = await response.json();
+
+      if (data.status === 'sucesso' && data.base64) {
+        // Converte Base64 para Blob e abre
+        const byteCharacters = atob(data.base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const fileURL = URL.createObjectURL(blob);
+        window.open(fileURL, '_blank');
+      } else {
+        // Fallback se o GAS falhar ou não suportar a ação
+        window.open(fileUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Erro ao visualizar arquivo via proxy:', error);
+      window.open(fileUrl, '_blank');
+    } finally {
+      setLoadingFileId(null);
     }
   };
 
@@ -867,14 +915,18 @@ export default function App() {
                           <p className="text-[10px] text-neutral-400 uppercase tracking-wider">PDF Armazenado no Drive</p>
                         </div>
                       </div>
-                      <a 
-                        href={file.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs font-bold text-neutral-700 bg-white border border-neutral-200 px-4 py-2 rounded-lg hover:bg-neutral-50 transition-all"
+                      <button 
+                        onClick={() => handleViewFile(file.id, file.url)}
+                        disabled={loadingFileId === (file.id || file.url?.match(/[-\w]{25,}/)?.[0])}
+                        className="flex items-center gap-2 text-xs font-bold text-neutral-700 bg-white border border-neutral-200 px-4 py-2 rounded-lg hover:bg-neutral-50 transition-all disabled:opacity-50"
                       >
-                        <ExternalLink size={14} /> Abrir Ficha
-                      </a>
+                        {loadingFileId === (file.id || file.url?.match(/[-\w]{25,}/)?.[0]) ? (
+                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-neutral-900 border-t-transparent" />
+                        ) : (
+                          <ExternalLink size={14} />
+                        )}
+                        Abrir Ficha
+                      </button>
                     </div>
                   ))
                 ) : !isSearching && searchQuery && (
