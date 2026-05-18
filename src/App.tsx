@@ -80,7 +80,7 @@ const initialFormData: FormData = {
 const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMxNzE3MTciIHJ4PSIxMCIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjI0Ij5QT1JUTyBTRUdVUk88L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI3NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjYThhMDQiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC13ZWlnaHQ9ImJsYWNrIiBmb250LXNpemU9IjI4Ij5QUkFJQSBSRVNPUlQ8L3RleHQ+Cjwvc3ZnPg==';
 
 // CAMINHO DA LOGO: Caso queira mudar a logo padrão, substitua o arquivo na pasta public/assets/
-const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.png';
+const ASSETS_LOGO_PATH = '/assets/logotipo-do-hotel.jpeg';
 
 const formatPhoneNumber = (value: string) => {
   if (!value) return value;
@@ -104,6 +104,13 @@ const formatCEP = (value: string) => {
   const cep = value.replace(/\D/g, '');
   if (cep.length <= 5) return cep;
   return `${cep.slice(0, 5)}-${cep.slice(5, 8)}`;
+};
+
+const formatDate = (value: string) => {
+  const date = value.replace(/\D/g, '');
+  if (date.length <= 2) return date;
+  if (date.length <= 4) return `${date.slice(0, 2)}/${date.slice(2)}`;
+  return `${date.slice(0, 2)}/${date.slice(2, 4)}/${date.slice(4, 8)}`;
 };
 
 const validateCPF = (cpf: string): boolean => {
@@ -231,6 +238,11 @@ export default function App() {
       } else {
         setCepError(null);
       }
+    }
+
+    // Formatação de Data de Nascimento (Máscara DD/MM/AAAA)
+    if (name === 'dataNascimento') {
+      value = formatDate(value);
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -558,7 +570,16 @@ export default function App() {
               <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
                 <Calendar size={14} /> Data de Nasc. / Date Born <span className="text-red-500">*</span>
               </label>
-              <input type="date" name="dataNascimento" value={formData.dataNascimento} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
+              <input 
+                type="text" 
+                name="dataNascimento" 
+                value={formData.dataNascimento} 
+                onChange={handleInputChange} 
+                inputMode="numeric"
+                placeholder="DD/MM/AAAA"
+                maxLength={10}
+                className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" 
+              />
             </div>
 
             {/* Row 2 */}
