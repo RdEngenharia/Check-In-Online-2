@@ -262,9 +262,6 @@ export default function App() {
     formData.nomeCompleto.trim().length > 0 &&
     formData.dataNascimento.trim().length > 0 &&
     formData.idade.trim().length > 0 &&
-    formData.sexo.trim().length > 0 &&
-    formData.documentoNumero.trim().length > 0 &&
-    formData.documentoTipo.trim().length > 0 &&
     (formData.pais === 'BRASIL' ? validateCPF(formData.cpf) : formData.cpf.trim().length > 0) &&
     formData.residenciaPermanente.trim().length > 0 &&
     formData.cidadeEstado.trim().length > 0 &&
@@ -604,7 +601,7 @@ export default function App() {
               <input type="number" name="idade" value={formData.idade} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">Sexo / Sex <span className="text-red-500">*</span></label>
+              <label className="text-xs font-semibold text-neutral-700">Sexo / Sex</label>
               <select name="sexo" value={formData.sexo} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm">
                 <option value="">Selecione / Select</option>
                 <option value="Masculino">Masculino / Male</option>
@@ -614,11 +611,11 @@ export default function App() {
 
             {/* Row 3 */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">Doc. Identidade / Travel Doc <span className="text-red-500">*</span></label>
+              <label className="text-xs font-semibold text-neutral-700">Doc. Identidade / Travel Doc</label>
               <input type="text" name="documentoNumero" value={formData.documentoNumero} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder="Número / Number" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-neutral-700">Tipo / Type <span className="text-red-500">*</span></label>
+              <label className="text-xs font-semibold text-neutral-700">Tipo / Type</label>
               <input type="text" name="documentoTipo" value={formData.documentoTipo} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" placeholder={formData.pais === 'BRASIL' ? "RG, CNH..." : "Passaporte, DNI..."} />
             </div>
             <div className="space-y-1">
@@ -647,12 +644,6 @@ export default function App() {
             </div>
 
             {/* Row 4 */}
-            <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
-                <MapPin size={14} /> Residência / Residence <span className="text-red-500">*</span>
-              </label>
-              <input type="text" name="residenciaPermanente" value={formData.residenciaPermanente} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
-            </div>
             <div className="space-y-1 relative">
               <label className="text-xs font-semibold text-neutral-700">{formData.pais === 'BRASIL' ? 'CEP / Zip Code' : 'Código Postal'} <span className="text-red-500">*</span></label>
               <div className="relative">
@@ -675,6 +666,12 @@ export default function App() {
               {cepError && (
                 <p className="text-[10px] text-red-500 font-medium">{cepError}</p>
               )}
+            </div>
+            <div className="md:col-span-2 space-y-1">
+              <label className="text-xs font-semibold text-neutral-700 flex items-center gap-2">
+                <MapPin size={14} /> Residência / Residence <span className="text-red-500">*</span>
+              </label>
+              <input type="text" name="residenciaPermanente" value={formData.residenciaPermanente} onChange={handleInputChange} className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-neutral-700">Cidade, Estado / City, State <span className="text-red-500">*</span></label>
